@@ -35,7 +35,7 @@ document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{
 function fillCategorySelect(){ $("storyCategory").innerHTML='<option value="">بدون تصنيف</option>'+categories.map(c=>'<option value="'+c.id+'">'+escapeHtml(c.name)+'</option>').join("");}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 function renderStories(){
-  $("storyList").innerHTML=stories.length?stories.map(s=>'<div class="list-row"><div><div class="row-title">'+escapeHtml(s.title)+'</div><div class="row-meta">'+(s.status==="published"?"منشورة":"مسودة")+' · '+new Date(s.created_at).toLocaleDateString("ar-EG")+'</div></div><div class="row-actions"><button data-edit="'+s.id+'">تعديل</button><button class="danger" data-delete="'+s.id+'">حذف</button></div></div>').join(""):'<p class="muted">لا توجد قصص حتى الآن.</p>';
+  $("storyList").innerHTML=stories.length?stories.map(s=>'<div class="list-row"><div><div class="row-title">'+escapeHtml(s.title)+'</div><div class="row-meta">'+(s.status==="published"?"منشورة":"مسودة")+' · '+(s.views_count||0)+' مشاهدة · '+new Date(s.created_at).toLocaleDateString("ar-EG")+'</div></div><div class="row-actions"><button data-edit="'+s.id+'">تعديل</button><button class="danger" data-delete="'+s.id+'">حذف</button></div></div>').join(""):'<p class="muted">لا توجد قصص حتى الآن.</p>';
   $("storyList").querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>editStory(b.dataset.edit));
   $("storyList").querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteStory(b.dataset.delete));
 }
