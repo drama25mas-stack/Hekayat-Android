@@ -1,0 +1,12 @@
+name = "hekayat-api"
+main = "src/index.js"
+compatibility_date = "2025-02-14"
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "hekayat-media"
+
+[assets]
+directory = "../../admin"
+binding = "ASSETS"
+run_worker_first = ["/v1/*", "/health"]
