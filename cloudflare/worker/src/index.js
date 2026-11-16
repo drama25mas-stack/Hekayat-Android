@@ -189,7 +189,7 @@ async function handle(request, env) {
     const uploadId = url.searchParams.get("upload_id");
     if (!uploadId || !Number.isInteger(partNumber) || partNumber < 1) return json({ error: "Invalid multipart upload details" }, 400);
     const upload = env.MEDIA.resumeMultipartUpload(key, uploadId);
-    const part = await upload.uploadPart(partNumber, request.body);
+    const part = await upload.uploadPart(partNumber, await request.arrayBuffer());
     return json({ part_number: partNumber, etag: part.etag });
   }
   if (url.pathname === "/v1/admin/uploads/complete" && request.method === "POST") {
