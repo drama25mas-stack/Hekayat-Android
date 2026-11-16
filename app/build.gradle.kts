@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+val storiesApiBaseUrl = providers.gradleProperty("STORIES_API_BASE_URL")
+    .orElse("https://YOUR-WORKER.workers.dev/")
+    .get()
+
 android {
     namespace = "com.hekayat.stories"
     compileSdk = 35
