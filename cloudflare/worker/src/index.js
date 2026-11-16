@@ -112,8 +112,15 @@ async function handle(request, env) {
   if (url.pathname.startsWith("/v1/admin/")) await requireAdmin(request, env);
 
   if (url.pathname === "/v1/admin/stories" && request.method === "GET") {
-    const r = await supabase(env, "stories?select=*&order=created_at.desc");
-    return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+    const [r, vr] = await Promise.all([
+      supabase(env, "stories?select=*&order=created_at.desc"),
+      supabase(env, "story_views?select=story_id")
+    ]);
+    if (!r.ok) return new Response(r.body, { status: r.status });
+    const rows = await r.json();
+    const viewRows = vr.ok ? await vr.json() : [];
+    const counts = viewRows.reduce((acc, item) => { acc[item.story_id] = (acc[item.story_id] || 0) + 1; return acc; }, {});
+    return json(rows.map(item => ({ ...item, views_count: counts[item.id] || 0 })));
   }
   if (url.pathname === "/v1/admin/stories" && request.method === "POST") {
     const body = await request.json();
@@ -148,6 +155,15 @@ async function handle(request, env) {
     const r = await supabase(env, "categories?select=*&order=sort_order.asc,name.asc");
     return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
   }
+  const categoryEditMatch = url.pathname.match(/^\\/v1\\/admin\\/categories\\/([0-9a-f-]+)$/i);
+  if (categoryEditMatch && request.method === "PATCH") {
+    const b = await request.json();
+    const row = {};
+    if (typeof b.name === "string" && b.name.trim()) row.name = b.name.trim();
+    if (Number.isInteger(b.sort_order)) row.sort_order = b.sort_order;
+    const r = await supabase(env, "categories?id=eq." + categoryEditMatch[1], { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(row) });
+    return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+  }
   if (url.pathname === "/v1/admin/categories" && request.method === "POST") {
     const b = await request.json();
     if (!b.name?.trim()) return json({ error: "اسم التصنيف مطلوب" }, 400);
@@ -166,8 +182,10 @@ async function handle(request, env) {
     const rows = await r.json();
     const views = await supabase(env, "story_views?select=id");
     const viewRows = views.ok ? await views.json() : [];
+    const counts = viewRows.reduce((acc, item) => { acc[item.story_id] = (acc[item.story_id] || 0) + 1; return acc; }, {});
+    const topStories = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,5).map(([id,count]) => ({ id, views: count }));
     return json({ stories: rows.length, published: rows.filter(x => x.status === "published").length,
-      drafts: rows.filter(x => x.status === "draft").length, views: viewRows.length });
+      drafts: rows.filter(x => x.status === "draft").length, views: viewRows.length, top_stories: topStories });
   }
 
   if (url.pathname === "/v1/admin/uploads" && request.method === "POST") {
