@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0b0e16"><title>إدارة حكايات</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="shell">
+    <section id="login" class="login card">
+      <div class="brand-mark">ح</div><p class="eyebrow">HEKAYAT CONTROL</p>
+      <h1>لوحة إدارة حكايات</h1><p class="muted">سجّل دخولك بحساب المالك لإدارة المحتوى.</p>
+      <form id="loginForm"><label>البريد الإلكتروني<input id="email" type="email" required autocomplete="username"></label>
+      <label>كلمة المرور<input id="password" type="password" required autocomplete="current-password"></label>
+      <button class="primary">تسجيل الدخول</button><p id="loginError" class="error"></p></form>
+    </section>
+    <section id="dashboard" hidden>
+      <header class="topbar"><div><p class="eyebrow">HEKAYAT / ADMIN</p><h1>مساحة الإدارة</h1></div><button id="logout" class="ghost">تسجيل الخروج</button></header>
+      <nav class="tabs"><button data-tab="overview" class="active">نظرة عامة</button><button data-tab="stories">القصص</button><button data-tab="categories">التصنيفات</button></nav>
+      <section id="overview" class="view">
+        <div class="stats">
+          <article class="stat card"><span>كل القصص</span><strong id="statStories">—</strong></article>
+          <article class="stat card"><span>منشورة</span><strong id="statPublished">—</strong></article>
+          <article class="stat card"><span>مسودات</span><strong id="statDrafts">—</strong></article>
+          <article class="stat card"><span>المشاهدات المسجلة</span><strong id="statViews">—</strong></article>
+        </div>
+        <div class="card note"><h2>مرحبًا بك في حكايات</h2><p class="muted">من هنا تقدر تنشر القصص وتدير التصنيفات وتتابع أرقام المشاهدة.</p></div>
+      </section>
+      <section id="stories" class="view" hidden>
+        <div class="section-head"><div><h2>إدارة القصص</h2><p class="muted">ارفع فيديو جديد أو عدّل قصة موجودة.</p></div><button id="newStory" class="primary">＋ إضافة قصة</button></div>
+        <div id="storyFormWrap" class="card" hidden><form id="storyForm">
+          <input id="storyId" type="hidden"><div class="form-grid">
+          <label>عنوان القصة<input id="storyTitle" maxlength="180" required></label>
+          <label>التصنيف<select id="storyCategory"><option value="">بدون تصنيف</option></select></label>
+          <label class="wide">وصف القصة<textarea id="storyDescription" rows="3"></textarea></label>
+          <label class="wide">ملف الفيديو<input id="storyVideo" type="file" accept="video/*"></label>
+          <label>حالة القصة<select id="storyStatus"><option value="draft">مسودة</option><option value="published">نشر مباشرة</option></select></label>
+          </div><p id="uploadStatus" class="muted"></p><div class="actions"><button class="primary">حفظ القصة</button><button type="button" id="cancelStory" class="ghost">إلغاء</button></div>
+        </form></div>
+        <div id="storyList" class="list card"></div>
+      </section>
+      <section id="categories" class="view" hidden>
+        <div class="section-head"><div><h2>التصنيفات</h2><p class="muted">نظّم القصص داخل أقسام واضحة.</p></div></div>
+        <form id="categoryForm" class="inline-form card"><label>اسم التصنيف<input id="categoryName" required maxlength="80" placeholder="مثال: دراما"></label><button class="primary">إضافة</button></form>
+        <div id="categoryList" class="list card"></div>
+      </section>
+      <p id="globalError" class="error"></p>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body></html>
