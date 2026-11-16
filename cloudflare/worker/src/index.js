@@ -78,7 +78,7 @@ async function handle(request, env) {
   if (storyMatch && request.method === "PATCH") {
     const b = await request.json();
     const row = {};
-    for (const k of ["title","description","category_id","cover_object_key","status"]) if (k in b) row[k] = b[k];
+    for (const k of ["title","description","category_id","cover_object_key","video_object_key","file_size_bytes","mime_type","status"]) if (k in b) row[k] = b[k];
     if (b.status === "published") row.published_at = new Date().toISOString();
     const r = await supabase(env, "stories?id=eq." + storyMatch[1], { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(row) });
     return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
@@ -122,31 +122,23 @@ async function handle(request, env) {
     const b = await request.json();
     const name = String(b.filename || "video").replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
     const key = "stories/" + crypto.randomUUID() + "-" + name;
-    return json({ upload_url: "/v1/admin/uploads/" + encodeURIComponent(key), object_key: key });
+    const upload = await env.MEDIA.createMultipartUpload(key, {
+      httpMetadata: { contentType: b.content_type || "application/octet-stream" }
+    });
+    return json({ object_key: key, upload_id: upload.uploadId, part_size: 8 * 1024 * 1024 });
   }
-  const uploadMatch = url.pathname.match(/^\/v1\/admin\/uploads\/(.+)$/);
-  if (uploadMatch && request.method === "PUT") {
-    const key = decodeURIComponent(uploadMatch[1]);
-    const size = Number(request.headers.get("content-length") || 0);
-    if (size > 95 * 1024 * 1024) return json({ error: "حجم الملف أكبر من حد الرفع المباشر؛ نحتاج تفعيل الرفع المجزأ للفيديوهات الكبيرة." }, 413);
-    await env.MEDIA.put(key, request.body, { httpMetadata: { contentType: request.headers.get("content-type") || "application/octet-stream" } });
-    return json({ object_key: key });
+  const partMatch = url.pathname.match(/^\\/v1\\/admin\\/uploads\\/parts\\/(.+)\\/(\\d+)$/);
+  if (partMatch && request.method === "PUT") {
+    const key = decodeURIComponent(partMatch[1]);
+    const uploadId = url.searchParams.get("upload_id");
+    const upload = env.MEDIA.resumeMultipartUpload(key, uploadId);
+    const part = await upload.uploadPart(Number(partMatch[2]), request.body);
+    return json({ part_number: Number(partMatch[2]), etag: part.etag });
   }
-
-  return json({ error: "Not found" }, 404);
-}
-export default {
-  async fetch(request, env) {
-    const origin = request.headers.get("origin") || "*";
-    try {
-      const url = new URL(request.url);
-      let response;
-      if (!url.pathname.startsWith("/v1/") && url.pathname !== "/health") response = await env.ASSETS.fetch(request);
-      else response = await handle(request, env);
-      return cors(response, origin);
-    } catch (e) {
-      const status = e.message === "UNAUTHORIZED" ? 401 : 500;
-      return cors(json({ error: status === 401 ? "غير مصرح" : "حدث خطأ في الخادم" }, status), origin);
-    }
+  const completeMatch = url.pathname.match(/^\\/v1\\/admin\\/uploads\\/complete$/);
+  if (completeMatch && request.method === "POST") {
+    const b = await request.json();
+    const upload = env.MEDIA.resumeMultipartUpload(b.object_key, b.upload_id);
+    const result = await upload.complete(b.parts || []);
+    return json({ object_key: result.key });
   }
-};
