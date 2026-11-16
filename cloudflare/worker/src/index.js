@@ -53,8 +53,42 @@ async function handle(request, env) {
   }
 
   if (url.pathname === "/v1/stories" && request.method === "GET") {
-    const r = await supabase(env, "stories?select=id,title,description,category_id,cover_object_key,duration_seconds,status,published_at,created_at&status=eq.published&order=published_at.desc");
-    return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+    const r = await supabase(env, "stories?select=id,title,description,category_id,video_object_key,cover_object_key,duration_seconds,status,published_at,created_at&status=eq.published&order=published_at.desc");
+    if (!r.ok) return new Response(r.body, { status: r.status });
+    const rows = await r.json();
+    return json(rows.map(row => ({ ...row,
+      video_url: url.origin + "/v1/media/" + encodeURIComponent(row.video_object_key),
+      cover_url: row.cover_object_key ? url.origin + "/v1/media/" + encodeURIComponent(row.cover_object_key) : null
+    })));
+  }
+  if (url.pathname.startsWith("/v1/media/") && request.method === "GET") {
+    const key = decodeURIComponent(url.pathname.slice("/v1/media/".length));
+    const check = await supabase(env, "stories?select=id&status=eq.published&video_object_key=eq." + encodeURIComponent(key));
+    if (!check.ok) return json({ error: "Media lookup failed" }, 502);
+    const rows = await check.json();
+    if (!rows.length) return json({ error: "Media not found" }, 404);
+    let object;
+    const rangeHeader = request.headers.get("range");
+    if (rangeHeader) {
+      const match = rangeHeader.match(/^bytes=(\\d+)-(\\d*)$/);
+      if (!match) return new Response(null, { status: 416 });
+      const offset = Number(match[1]);
+      const end = match[2] ? Number(match[2]) : undefined;
+      object = await env.MEDIA.get(key, { range: end === undefined ? { offset } : { offset, length: end - offset + 1 } });
+    } else object = await env.MEDIA.get(key);
+    if (!object) return json({ error: "Media not found" }, 404);
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("accept-ranges", "bytes");
+    headers.set("cache-control", "public, max-age=3600");
+    headers.set("etag", object.httpEtag);
+    if (rangeHeader && object.range) {
+      headers.set("content-range", "bytes " + object.range.offset + "-" + object.range.end + "/" + object.size);
+      headers.set("content-length", String(object.range.end - object.range.offset + 1));
+      return new Response(object.body, { status: 206, headers });
+    }
+    headers.set("content-length", String(object.size));
+    return new Response(object.body, { headers });
   }
 
   if (url.pathname.startsWith("/v1/admin/")) await requireAdmin(request, env);
