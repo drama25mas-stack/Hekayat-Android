@@ -1,26 +1,65 @@
-# Hekayat backend setup
+# Hekayat backend and admin deployment
 
-The Android client is deliberately designed to call a small Cloudflare Worker API. It must never contain a Supabase service-role key, Cloudflare API token, or R2 secret.
+The admin website and API are served by one Cloudflare Worker. The dashboard is opened at the Worker URL (root path). Only the owner can sign in; viewers do not need accounts.
 
-## Required owner actions
+## 1. Create Supabase database
 
-1. Create a Supabase project and keep its project URL and public anon key.
-2. Run the SQL migration in `supabase/migrations/0001_initial_schema.sql` in the Supabase SQL editor.
-3. Create a private Cloudflare R2 bucket for story media.
-4. Deploy the Worker in `cloudflare/worker` and bind the R2 bucket as `MEDIA`.
-5. Set Worker secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `ADMIN_EMAIL`, and `ADMIN_PASSWORD_HASH`. Never commit these values.
-6. Configure the Worker URL in the Android app's `STORIES_API_BASE_URL` build config before connecting live content.
+1. Create a project at https://supabase.com/dashboard.
+2. Open SQL Editor and run `supabase/migrations/0001_initial_schema.sql`.
+3. In Project Settings → API, copy the Project URL and the `service_role` key. Keep the service-role key private; it is used only as a Cloudflare Worker secret.
 
-## API contract to implement
+## 2. Create R2 bucket
 
-- `GET /v1/stories`: return published stories only, newest first.
-- `GET /v1/stories/:id`: return one published story and a short-lived playback URL.
-- `POST /v1/admin/session`: verify the owner credentials and issue a short-lived signed admin token.
-- `POST /v1/admin/uploads`: admin-only; create a short-lived upload authorization for R2.
-- `POST /v1/admin/stories`: admin-only; publish story metadata after upload.
-- `PATCH /v1/admin/stories/:id` and `DELETE /v1/admin/stories/:id`: admin-only management.
-- `POST /v1/views`: record a privacy-conscious view event with server-side rate limiting.
+1. In Cloudflare Dashboard → R2, create a private bucket named `hekayat-media` (or update `bucket_name` in `cloudflare/worker/wrangler.toml`).
+2. Do not enable public bucket access. Video playback is served through the Worker, which checks that the media belongs to a published story.
 
-## Important
+The dashboard uploads in 8 MiB multipart chunks, so large videos are not sent as one huge Worker request.
 
-The app currently contains the first UI scaffold only. Live story browsing, upload, playback and admin login are not yet connected. They must not be treated as complete until the Worker is deployed, credentials are configured, and end-to-end tests pass.
+## 3. Configure and deploy Worker
+
+Install Node.js 20+ and run these commands from `cloudflare/worker`:
+
+```bash
+npm install
+npx wrangler login
+npx wrangler secret put SUPABASE_URL
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put ADMIN_EMAIL
+npx wrangler secret put ADMIN_PASSWORD_SHA256
+npx wrangler secret put JWT_SECRET
+npx wrangler deploy
+```
+
+Secret values:
+- `SUPABASE_URL`: Supabase project URL.
+- `SUPABASE_SERVICE_ROLE_KEY`: Supabase service-role key.
+- `ADMIN_EMAIL`: your private administrator email.
+- `ADMIN_PASSWORD_SHA256`: lowercase SHA-256 hex digest of your admin password. Generate it locally; never send the password in chat or commit it.
+- `JWT_SECRET`: a random secret of at least 32 bytes. Generate locally with `openssl rand -hex 32`.
+
+Generate the password digest:
+- macOS/Linux: `printf '%s' 'YOUR_PASSWORD' | sha256sum`
+- PowerShell: `$bytes=[Text.Encoding]::UTF8.GetBytes('YOUR_PASSWORD'); $sha=[Security.Cryptography.SHA256]::HashData($bytes); [Convert]::ToHexString($sha).ToLower()`
+
+After deploy, open the Worker URL in a browser. The Hekayat Admin dashboard is served from the same Worker.
+
+## 4. Admin functions included in this commit
+
+- Owner-only email/password login with an 8-hour signed admin token.
+- Upload videos to private R2 using multipart chunks.
+- Create, edit, publish, draft and delete stories.
+- Create and delete categories.
+- Overview counters for all stories, published stories, drafts and recorded views.
+- Public API endpoint `GET /v1/stories` for published stories and `GET /v1/media/{object-key}` for published media only, including byte-range support for video playback.
+
+## 5. Connect the Android application
+
+The Android app must be configured with the deployed Worker base URL and consume `GET /v1/stories`. The initial Android commit is only a UI scaffold; the live Android feed/player integration is still a separate implementation step. Do not mark the Android app as backend-connected until this endpoint is configured and tested on a device.
+
+## Security and limits
+
+- Never put Supabase service-role keys, R2 credentials or JWT signing secrets in the APK or GitHub.
+- Keep the R2 bucket private.
+- The Worker currently verifies the owner password by comparing its SHA-256 digest and signs short-lived admin JWTs. Use a strong unique password and rotate the secrets if exposed.
+- Configure Cloudflare abuse protections/rate limiting before public launch. Add resumable upload recovery and cleanup for abandoned multipart uploads before production.
+- Database and R2 capacity/costs depend on the selected provider plans; “unlimited video duration” does not mean unlimited storage or bandwidth.
