@@ -1,0 +1,44 @@
+name: Deploy Hekayat backend and admin
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Worker dependencies
+        run: npm install
+      - name: Configure Worker secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ADMIN_EMAIL: ${{ secrets.HEKAYAT_ADMIN_EMAIL }}
+          ADMIN_PASSWORD_SHA256: ${{ secrets.HEKAYAT_ADMIN_PASSWORD_SHA256 }}
+          JWT_SECRET: ${{ secrets.HEKAYAT_JWT_SECRET }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$SUPABASE_URL" && test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$ADMIN_EMAIL" && test -n "$ADMIN_PASSWORD_SHA256" && test -n "$JWT_SECRET"
+          printf '%s' "$SUPABASE_URL" | npx wrangler secret put SUPABASE_URL
+          printf '%s' "$SUPABASE_SERVICE_ROLE_KEY" | npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+          printf '%s' "$ADMIN_EMAIL" | npx wrangler secret put ADMIN_EMAIL
+          printf '%s' "$ADMIN_PASSWORD_SHA256" | npx wrangler secret put ADMIN_PASSWORD_SHA256
+          printf '%s' "$JWT_SECRET" | npx wrangler secret put JWT_SECRET
+      - name: Deploy API and admin website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
