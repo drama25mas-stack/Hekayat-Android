@@ -40,7 +40,8 @@ function renderStories(){
   $("storyList").querySelectorAll("[data-delete]").forEach(b=>b.onclick=()=>deleteStory(b.dataset.delete));
 }
 function renderCategories(){
-  $("categoryList").innerHTML=categories.length?categories.map(c=>'<div class="list-row"><div class="row-title">'+escapeHtml(c.name)+'</div><div class="row-actions"><button class="danger" data-cat-delete="'+c.id+'">حذف</button></div></div>').join(""):'<p class="muted">لا توجد تصنيفات.</p>';
+  $("categoryList").innerHTML=categories.length?categories.map(c=>'<div class="list-row"><div class="row-title">'+escapeHtml(c.name)+'</div><div class="row-actions"><button data-cat-edit="'+c.id+'">تعديل الاسم</button><button class="danger" data-cat-delete="'+c.id+'">حذف</button></div></div>').join(""):'<p class="muted">لا توجد تصنيفات.</p>';
+  $("categoryList").querySelectorAll("[data-cat-edit]").forEach(b=>b.onclick=async()=>{const current=categories.find(c=>c.id===b.dataset.catEdit);const name=prompt("اسم التصنيف الجديد",current?.name||"");if(!name?.trim())return;try{await api("/admin/categories/"+b.dataset.catEdit,{method:"PATCH",body:JSON.stringify({name:name.trim()})});await loadAll();}catch(e){error(e.message);}});
   $("categoryList").querySelectorAll("[data-cat-delete]").forEach(b=>b.onclick=async()=>{if(!confirm("حذف التصنيف؟"))return;try{await api("/admin/categories/"+b.dataset.catDelete,{method:"DELETE"});await loadAll();}catch(e){error(e.message);}});
 }
 function editStory(id){
