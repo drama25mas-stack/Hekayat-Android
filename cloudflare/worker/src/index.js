@@ -61,6 +61,10 @@ async function handle(request, env) {
       cover_url: row.cover_object_key ? url.origin + "/v1/media/" + encodeURIComponent(row.cover_object_key) : null
     })));
   }
+  if (url.pathname === "/v1/categories" && request.method === "GET") {
+    const r = await supabase(env, "categories?select=id,name,sort_order&order=sort_order.asc,name.asc");
+    return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
+  }
   if (url.pathname === "/v1/views" && request.method === "POST") {
     const body = await request.json();
     if (!body.story_id) return json({ error: "story_id is required" }, 400);
