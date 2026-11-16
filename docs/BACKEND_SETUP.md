@@ -41,6 +41,23 @@ Generate the password digest:
 - macOS/Linux: `printf '%s' 'YOUR_PASSWORD' | sha256sum`
 - PowerShell: `$bytes=[Text.Encoding]::UTF8.GetBytes('YOUR_PASSWORD'); $sha=[Security.Cryptography.SHA256]::HashData($bytes); [Convert]::ToHexString($sha).ToLower()`
 
+### Easier deployment from GitHub Actions
+
+Instead of running the CLI commands above, you can deploy from GitHub after creating the R2 bucket:
+
+1. In Cloudflare → My Profile → API Tokens, create a token from the **Edit Cloudflare Workers** template. It grants the Worker deployment permissions; restrict its account scope where possible. See the [Cloudflare token permissions reference](https://developers.cloudflare.com/fundamentals/api/reference/permissions/).
+2. In this GitHub repository, open Settings → Secrets and variables → Actions → New repository secret.
+3. Add these secrets (never paste them into chat or commit them):
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `HEKAYAT_ADMIN_EMAIL`
+   - `HEKAYAT_ADMIN_PASSWORD_SHA256`
+   - `HEKAYAT_JWT_SECRET`
+4. Open Actions → **Deploy Hekayat backend and admin** → Run workflow.
+5. When the run succeeds, open the Worker URL shown in Cloudflare Workers. The dashboard is at the root URL.
+
 After deploy, open the Worker URL in a browser. The Hekayat Admin dashboard is served from the same Worker.
 
 ## 4. Admin functions included in this commit
