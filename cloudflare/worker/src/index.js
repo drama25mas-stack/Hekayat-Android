@@ -155,13 +155,15 @@ async function handle(request, env) {
     const r = await supabase(env, "categories?select=*&order=sort_order.asc,name.asc");
     return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
   }
-  const categoryEditMatch = url.pathname.match(/^\\/v1\\/admin\\/categories\\/([0-9a-f-]+)$/i);
-  if (categoryEditMatch && request.method === "PATCH") {
+  const categoryEditPrefix = "/v1/admin/categories/";
+  if (url.pathname.startsWith(categoryEditPrefix) && request.method === "PATCH") {
+    const categoryId = url.pathname.slice(categoryEditPrefix.length);
+    if (!categoryId || categoryId.includes("/")) return json({ error: "Invalid category id" }, 400);
     const b = await request.json();
     const row = {};
     if (typeof b.name === "string" && b.name.trim()) row.name = b.name.trim();
     if (Number.isInteger(b.sort_order)) row.sort_order = b.sort_order;
-    const r = await supabase(env, "categories?id=eq." + categoryEditMatch[1], { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(row) });
+    const r = await supabase(env, "categories?id=eq." + categoryId, { method: "PATCH", headers: { prefer: "return=representation" }, body: JSON.stringify(row) });
     return new Response(r.body, { status: r.status, headers: { "content-type": "application/json" } });
   }
   if (url.pathname === "/v1/admin/categories" && request.method === "POST") {
