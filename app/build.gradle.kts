@@ -16,7 +16,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
-        buildConfigField("String", "STORIES_API_BASE_URL", "\"https://YOUR-WORKER.workers.dev\"")
+        buildConfigField("String", "STORIES_API_BASE_URL", "\"$storiesApiBaseUrl\"")
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
