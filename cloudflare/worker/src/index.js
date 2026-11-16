@@ -127,18 +127,23 @@ async function handle(request, env) {
     });
     return json({ object_key: key, upload_id: upload.uploadId, part_size: 8 * 1024 * 1024 });
   }
-  const partMatch = url.pathname.match(/^\\/v1\\/admin\\/uploads\\/parts\\/(.+)\\/(\\d+)$/);
-  if (partMatch && request.method === "PUT") {
-    const key = decodeURIComponent(partMatch[1]);
+  const partPrefix = "/v1/admin/uploads/parts/";
+  if (url.pathname.startsWith(partPrefix) && request.method === "PUT") {
+    const tail = url.pathname.slice(partPrefix.length);
+    const splitAt = tail.lastIndexOf("/");
+    if (splitAt < 1) return json({ error: "Invalid upload part path" }, 400);
+    const key = decodeURIComponent(tail.slice(0, splitAt));
+    const partNumber = Number(tail.slice(splitAt + 1));
     const uploadId = url.searchParams.get("upload_id");
+    if (!uploadId || !Number.isInteger(partNumber) || partNumber < 1) return json({ error: "Invalid multipart upload details" }, 400);
     const upload = env.MEDIA.resumeMultipartUpload(key, uploadId);
-    const part = await upload.uploadPart(Number(partMatch[2]), request.body);
-    return json({ part_number: Number(partMatch[2]), etag: part.etag });
+    const part = await upload.uploadPart(partNumber, request.body);
+    return json({ part_number: partNumber, etag: part.etag });
   }
-  const completeMatch = url.pathname.match(/^\\/v1\\/admin\\/uploads\\/complete$/);
-  if (completeMatch && request.method === "POST") {
+  if (url.pathname === "/v1/admin/uploads/complete" && request.method === "POST") {
     const b = await request.json();
+    if (!b.object_key || !b.upload_id || !Array.isArray(b.parts) || !b.parts.length) return json({ error: "Invalid completion details" }, 400);
     const upload = env.MEDIA.resumeMultipartUpload(b.object_key, b.upload_id);
-    const result = await upload.complete(b.parts || []);
+    const result = await upload.complete(b.parts);
     return json({ object_key: result.key });
   }
