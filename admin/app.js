@@ -52,22 +52,19 @@ function editStory(id){
 $("newStory").onclick=()=>{$("storyForm").reset();$("storyId").value="";$("storyFormWrap").hidden=false;$("uploadStatus").textContent="اختر ملف فيديو لرفعه."};
 $("cancelStory").onclick=()=>$("storyFormWrap").hidden=true;
 async function upload(file){
-  const init=await api("/admin/uploads",{method:"POST",body:JSON.stringify({filename:file.name})});
-  const r=await fetch(init.upload_url,{method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":file.type||"application/octet-stream","content-length":String(file.size)},body:file});
-  const d=await r.json();if(!r.ok)throw new Error(d.error||"فشل رفع الفيديو");return d.object_key;
+  const init=await api("/admin/uploads",{method:"POST",body:JSON.stringify({filename:file.name,content_type:file.type||"application/octet-stream"})});
+  const chunkSize=init.part_size, parts=[];
+  const total=Math.ceil(file.size/chunkSize);
+  for(let i=0;i<total;i++){
+    $("uploadStatus").textContent="جارٍ رفع الفيديو… "+Math.round((i/total)*100)+"%";
+    const chunk=file.slice(i*chunkSize,Math.min(file.size,(i+1)*chunkSize));
+    const response=await fetch("/v1/admin/uploads/parts/"+encodeURIComponent(init.object_key)+"/"+(i+1)+"?upload_id="+encodeURIComponent(init.upload_id),{
+      method:"PUT",headers:{"authorization":"Bearer "+token,"content-type":"application/octet-stream"},body:chunk
+    });
+    const result=await response.json();if(!response.ok)throw new Error(result.error||"فشل رفع جزء من الفيديو");
+    parts.push({partNumber:i+1,etag:result.etag});
+  }
+  $("uploadStatus").textContent="جارٍ إنهاء رفع الفيديو…";
+  const completed=await api("/admin/uploads/complete",{method:"POST",body:JSON.stringify({object_key:init.object_key,upload_id:init.upload_id,parts})});
+  return completed.object_key;
 }
-$("storyForm").addEventListener("submit",async e=>{
-  e.preventDefault();error("");const id=$("storyId").value,file=$("storyVideo").files[0];
-  try{
-    let existing=id?stories.find(x=>x.id===id):null,key=existing?.video_object_key;
-    if(file){$("uploadStatus").textContent="جارٍ رفع الفيديو…";key=await upload(file);}
-    if(!key)throw new Error("اختار ملف فيديو أولًا");
-    const body={title:$("storyTitle").value,description:$("storyDescription").value,category_id:$("storyCategory").value||null,status:$("storyStatus").value,video_object_key:key,file_size_bytes:file?.size||existing?.file_size_bytes,mime_type:file?.type||existing?.mime_type};
-    if(id)await api("/admin/stories/"+id,{method:"PATCH",body:JSON.stringify(body)});
-    else await api("/admin/stories",{method:"POST",body:JSON.stringify(body)});
-    $("storyFormWrap").hidden=true;await loadAll();
-  }catch(err){error(err.message);$("uploadStatus").textContent=err.message;}
-});
-async function deleteStory(id){if(!confirm("هل أنت متأكد من حذف القصة والفيديو؟"))return;try{await api("/admin/stories/"+id,{method:"DELETE"});await loadAll();}catch(e){error(e.message);}}
-$("categoryForm").addEventListener("submit",async e=>{e.preventDefault();try{await api("/admin/categories",{method:"POST",body:JSON.stringify({name:$("categoryName").value})});$("categoryName").value="";await loadAll();}catch(err){error(err.message);}});
-if(token){showDashboard(true);loadAll().catch(e=>{token="";sessionStorage.removeItem("hekayat_admin_token");showDashboard(false);$("loginError").textContent=e.message;});}
