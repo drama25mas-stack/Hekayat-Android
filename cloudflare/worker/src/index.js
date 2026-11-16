@@ -61,6 +61,16 @@ async function handle(request, env) {
       cover_url: row.cover_object_key ? url.origin + "/v1/media/" + encodeURIComponent(row.cover_object_key) : null
     })));
   }
+  if (url.pathname === "/v1/views" && request.method === "POST") {
+    const body = await request.json();
+    if (!body.story_id) return json({ error: "story_id is required" }, 400);
+    const visible = await supabase(env, "stories?select=id&status=eq.published&id=eq." + encodeURIComponent(body.story_id));
+    if (!visible.ok) return json({ error: "Story lookup failed" }, 502);
+    const matches = await visible.json();
+    if (!matches.length) return json({ error: "Story not found" }, 404);
+    const saved = await supabase(env, "story_views", { method: "POST", body: JSON.stringify({ story_id: body.story_id }) });
+    return json({ recorded: saved.ok }, saved.ok ? 201 : 502);
+  }
   if (url.pathname.startsWith("/v1/media/") && request.method === "GET") {
     const key = decodeURIComponent(url.pathname.slice("/v1/media/".length));
     const check = await supabase(env, "stories?select=id&status=eq.published&video_object_key=eq." + encodeURIComponent(key));
