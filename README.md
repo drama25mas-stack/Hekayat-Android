@@ -10,6 +10,6 @@ Hekayat is an Android video-stories app with a separate owner-only web administr
 - `.github/workflows/android-build.yml`: Android debug APK build workflow.
 
 ## Current status
-The Android UI scaffold and the web admin/API source have been committed. The backend is **not live yet**: the owner must create Supabase and Cloudflare resources, configure Worker secrets, and deploy the Worker. Android live feed/player integration and a verified APK build are still pending.
+The Android UI scaffold and the web admin/API source have been committed. The backend is **not live yet**: the owner must create Supabase and Cloudflare resources, configure Worker secrets, and deploy the Worker. Android feed/player code now targets the Worker API; the deployed Worker URL must be set in GitHub Actions variable `STORIES_API_BASE_URL`, then the live flow and APK build must be verified.
 
 See [Backend and admin deployment](docs/BACKEND_SETUP.md) for the exact setup steps.
