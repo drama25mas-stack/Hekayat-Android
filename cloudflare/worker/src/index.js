@@ -70,10 +70,14 @@ async function handle(request, env) {
     let object;
     const rangeHeader = request.headers.get("range");
     if (rangeHeader) {
-      const match = rangeHeader.match(/^bytes=(\\d+)-(\\d*)$/);
-      if (!match) return new Response(null, { status: 416 });
-      const offset = Number(match[1]);
-      const end = match[2] ? Number(match[2]) : undefined;
+      const rawRange = rangeHeader.startsWith("bytes=") ? rangeHeader.slice(6) : "";
+      const dash = rawRange.indexOf("-");
+      const startText = rawRange.slice(0, dash);
+      const endText = rawRange.slice(dash + 1);
+      const digits = value => value.length > 0 && [...value].every(ch => ch >= "0" && ch <= "9");
+      if (dash < 1 || !digits(startText) || (endText && !digits(endText))) return new Response(null, { status: 416 });
+      const offset = Number(startText);
+      const end = endText ? Number(endText) : undefined;
       object = await env.MEDIA.get(key, { range: end === undefined ? { offset } : { offset, length: end - offset + 1 } });
     } else object = await env.MEDIA.get(key);
     if (!object) return json({ error: "Media not found" }, 404);
@@ -83,8 +87,8 @@ async function handle(request, env) {
     headers.set("cache-control", "public, max-age=3600");
     headers.set("etag", object.httpEtag);
     if (rangeHeader && object.range) {
-      headers.set("content-range", "bytes " + object.range.offset + "-" + object.range.end + "/" + object.size);
-      headers.set("content-length", String(object.range.end - object.range.offset + 1));
+      headers.set("content-range", "bytes " + object.range.offset + "-" + (object.range.offset + object.range.length - 1) + "/" + object.size);
+      headers.set("content-length", String(object.range.length));
       return new Response(object.body, { status: 206, headers });
     }
     headers.set("content-length", String(object.size));
