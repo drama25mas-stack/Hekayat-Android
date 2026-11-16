@@ -57,6 +57,8 @@ Instead of running the CLI commands above, you can deploy from GitHub after crea
    - `HEKAYAT_JWT_SECRET`
 4. Open Actions → **Deploy Hekayat backend and admin** → Run workflow.
 5. When the run succeeds, open the Worker URL shown in Cloudflare Workers. The dashboard is at the root URL.
+6. In GitHub Settings → Secrets and variables → Actions → Variables, add `STORIES_API_BASE_URL` with the Worker URL including the trailing slash, for example `https://hekayat-api.<your-subdomain>.workers.dev/`.
+7. Push any commit or manually run **Android CI** to build the APK with the live API URL.
 
 After deploy, open the Worker URL in a browser. The Hekayat Admin dashboard is served from the same Worker.
 
@@ -71,7 +73,7 @@ After deploy, open the Worker URL in a browser. The Hekayat Admin dashboard is s
 
 ## 5. Connect the Android application
 
-The Android app must be configured with the deployed Worker base URL and consume `GET /v1/stories`. The initial Android commit is only a UI scaffold; the live Android feed/player integration is still a separate implementation step. Do not mark the Android app as backend-connected until this endpoint is configured and tested on a device.
+The Android client now reads published stories from `GET /v1/stories`, plays the returned video URL with Media3, and records views through `POST /v1/views`. Set the GitHub Actions variable `STORIES_API_BASE_URL` to the deployed Worker URL before building the APK. The live connection still requires the backend to be deployed and tested on a real device.
 
 ## Security and limits
 
